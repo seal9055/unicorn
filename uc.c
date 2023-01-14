@@ -246,7 +246,6 @@ UNICORN_EXPORT
 uc_err uc_open(uc_arch arch, uc_mode mode, uc_engine **result)
 {
     struct uc_struct *uc;
-
     if (arch < UC_ARCH_MAX) {
         uc = calloc(1, sizeof(*uc));
         if (!uc) {

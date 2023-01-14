@@ -2112,11 +2112,31 @@ static void tcg_out_qemu_st_direct(TCGContext *s, TCGReg datalo, TCGReg datahi,
     const MemOp real_bswap = memop & MO_BSWAP;
     MemOp bswap = real_bswap;
     int movop = OPC_MOVL_EvGv;
+    uint64_t sz = 0;
 
     if (have_movbe && real_bswap) {
         bswap = 0;
         movop = OPC_MOVBE_MyGy;
     }
+
+    switch (memop & MO_SIZE) {
+    case MO_8:
+    	sz = 1;
+    	break;
+    case MO_16:
+    	sz = 2;
+    	break;
+    case MO_32:
+    	sz = 4;
+    	break;
+    case MO_64:
+    	sz = 8;
+    	break;
+    default:
+        tcg_abort();
+    }
+
+    //printf("Memory store of size %ld emitted\n", sz);
 
     switch (memop & MO_SIZE) {
     case MO_8:
@@ -2183,6 +2203,8 @@ static void tcg_out_qemu_st_direct(TCGContext *s, TCGReg datalo, TCGReg datahi,
 
 static void tcg_out_qemu_st(TCGContext *s, const TCGArg *args, bool is64)
 {
+	//printf("compiling memory store: %ld\n", s->pc_start);
+
     TCGReg datalo, datahi, addrlo;
     TCGReg addrhi QEMU_UNUSED_VAR;
     TCGMemOpIdx oi;

@@ -151,6 +151,7 @@ impl<'a, D> Drop for UnicornInner<'a, D> {
 }
 
 /// A Unicorn emulator instance.
+#[derive(Clone)]
 pub struct Unicorn<'a, D: 'a> {
     inner: Rc<UnsafeCell<UnicornInner<'a, D>>>,
 }

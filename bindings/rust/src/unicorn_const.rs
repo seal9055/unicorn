@@ -36,6 +36,7 @@ pub enum uc_error {
     HOOK_EXIST = 19,
     RESOURCE = 20,
     EXCEPTION = 21,
+    SNAPSHOT_CONTEXT_ALREADY_SET = 22,
 }
 
 #[repr(C)]
