@@ -61,6 +61,9 @@ pub struct Context {
     context: ffi::uc_context,
 }
 
+unsafe impl Send for Context {}
+unsafe impl Sync for Context {}
+
 impl Context {
     #[must_use]
     pub fn is_initialized(&self) -> bool {
@@ -1028,7 +1031,7 @@ impl<'a, D> Unicorn<'a, D> {
 
     /// Gets the current program counter for this `unicorn` instance.
     #[inline]
-    pub fn pc_read(&self) -> Result<u64, uc_error> {
+    pub fn get_pc(&self) -> Result<u64, uc_error> {
         let arch = self.get_arch();
         let reg = match arch {
             Arch::X86 => RegisterX86::RIP as i32,
@@ -1064,5 +1067,24 @@ impl<'a, D> Unicorn<'a, D> {
             Arch::MAX => panic!("Illegal Arch specified"),
         };
         self.reg_write(reg, value)
+    }
+    
+        /// Emulate machine code for a specified duration.
+    ///
+    /// `begin` is the address where to start the emulation. The emulation stops if `until`
+    /// is hit. `timeout` specifies a duration in microseconds after which the emulation is
+    /// stopped (infinite execution if set to 0). `count` is the maximum number of instructions
+    /// to emulate (emulate all the available instructions if set to 0).
+    pub fn seal_update_memory_mappings(
+        &mut self,
+    ) -> Result<(), uc_error> {
+        unsafe {
+            let err = ffi::seal_update_memory_mappings(self.get_handle());
+            if err == uc_error::OK {
+                Ok(())
+            } else {
+                Err(err)
+            }
+        }
     }
 }

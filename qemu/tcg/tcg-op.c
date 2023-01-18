@@ -2815,6 +2815,9 @@ static inline MemOp tcg_canonicalize_memop(MemOp op, bool is64, bool st)
 static void gen_ldst_i32(TCGContext *tcg_ctx, TCGOpcode opc, TCGv_i32 val, TCGv addr,
                          MemOp memop, TCGArg idx)
 {
+	// seal_modif
+	gen_helper_seal32(tcg_ctx, tcg_ctx->cpu_env);
+
     TCGMemOpIdx oi = make_memop_idx(memop, idx);
 #if TARGET_LONG_BITS == 32
     tcg_gen_op3i_i32(tcg_ctx, opc, val, addr, oi);
@@ -2830,6 +2833,9 @@ static void gen_ldst_i32(TCGContext *tcg_ctx, TCGOpcode opc, TCGv_i32 val, TCGv 
 static void gen_ldst_i64(TCGContext *tcg_ctx, TCGOpcode opc, TCGv_i64 val, TCGv addr,
                          MemOp memop, TCGArg idx)
 {
+	// seal_modif
+	gen_helper_seal64(tcg_ctx, tcg_ctx->cpu_env, addr);
+
     TCGMemOpIdx oi = make_memop_idx(memop, idx);
 #if TARGET_LONG_BITS == 32
 #if TCG_TARGET_REG_BITS == 32

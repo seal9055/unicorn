@@ -149,6 +149,7 @@ static bool gen_load(DisasContext *ctx, arg_lb *a, MemOp memop)
     gen_get_gpr(tcg_ctx, t0, a->rs1);
     tcg_gen_addi_tl(tcg_ctx, t0, t0, a->imm);
 
+    // seal_modif
     tcg_gen_qemu_ld_tl(tcg_ctx, t1, t0, ctx->mem_idx, memop);
     gen_set_gpr(tcg_ctx, a->rd, t1);
     tcg_temp_free(tcg_ctx, t0);
