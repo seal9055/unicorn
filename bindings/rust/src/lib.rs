@@ -1068,23 +1068,129 @@ impl<'a, D> Unicorn<'a, D> {
         };
         self.reg_write(reg, value)
     }
-    
-        /// Emulate machine code for a specified duration.
-    ///
-    /// `begin` is the address where to start the emulation. The emulation stops if `until`
-    /// is hit. `timeout` specifies a duration in microseconds after which the emulation is
-    /// stopped (infinite execution if set to 0). `count` is the maximum number of instructions
-    /// to emulate (emulate all the available instructions if set to 0).
-    pub fn seal_update_memory_mappings(
-        &mut self,
-    ) -> Result<(), uc_error> {
-        unsafe {
-            let err = ffi::seal_update_memory_mappings(self.get_handle());
-            if err == uc_error::OK {
-                Ok(())
-            } else {
-                Err(err)
-            }
-        }
+
+    /// Linux syscall arg-0 for active architecture
+    #[inline]
+    pub fn syscall_arg0_reg(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::X86 => RegisterX86::RDI as i32,
+                Arch::ARM => RegisterARM::R0 as i32,
+                Arch::ARM64 => RegisterARM64::X0 as i32,
+                Arch::MIPS => RegisterMIPS::A0 as i32,
+                Arch::SPARC => RegisterSPARC::O0 as i32,
+                Arch::PPC => RegisterPPC::R3 as i32,
+                Arch::RISCV => RegisterRISCV::A0 as i32,
+                Arch::MAX => panic!("Illegal Arch specified"),
+                _ => unreachable!(),
+        })
+    }
+
+    /// Linux syscall arg-1 register for active architecture
+    #[inline]
+    pub fn syscall_arg1_reg(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::X86 => RegisterX86::RSI as i32,
+                Arch::ARM => RegisterARM::R1 as i32,
+                Arch::ARM64 => RegisterARM64::X1 as i32,
+                Arch::MIPS => RegisterMIPS::A1 as i32,
+                Arch::SPARC => RegisterSPARC::O1 as i32,
+                Arch::PPC => RegisterPPC::R4 as i32,
+                Arch::RISCV => RegisterRISCV::A1 as i32,
+                Arch::MAX => panic!("Illegal Arch specified"),
+                _ => unreachable!(),
+        })
+    }
+
+
+    /// Linux syscall arg-2 register for active architecture
+    #[inline]
+    pub fn syscall_arg2_reg(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::X86 => RegisterX86::RDX as i32,
+                Arch::ARM => RegisterARM::R2 as i32,
+                Arch::ARM64 => RegisterARM64::X2 as i32,
+                Arch::MIPS => RegisterMIPS::A2 as i32,
+                Arch::SPARC => RegisterSPARC::O2 as i32,
+                Arch::PPC => RegisterPPC::R5 as i32,
+                Arch::RISCV => RegisterRISCV::A2 as i32,
+                Arch::MAX => panic!("Illegal Arch specified"),
+                _ => unreachable!(),
+        })
+    }
+
+    /// Linux syscall arg-3 register for active architecture
+    #[inline]
+    pub fn syscall_arg3_reg(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::X86 => RegisterX86::R10 as i32,
+                Arch::ARM => RegisterARM::R3 as i32,
+                Arch::ARM64 => RegisterARM64::X3 as i32,
+                Arch::MIPS => RegisterMIPS::A3 as i32,
+                Arch::SPARC => RegisterSPARC::O3 as i32,
+                Arch::PPC => RegisterPPC::R6 as i32,
+                Arch::RISCV => RegisterRISCV::A3 as i32,
+                Arch::MAX => panic!("Illegal Arch specified"),
+                _ => unreachable!(),
+        })
+    }
+
+    /// Linux syscall arg-4 register for active architecture
+    #[inline]
+    pub fn syscall_arg4_reg(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::X86 => RegisterX86::R8 as i32,
+                Arch::ARM => RegisterARM::R4 as i32,
+                Arch::ARM64 => RegisterARM64::X4 as i32,
+                Arch::SPARC => RegisterSPARC::O4 as i32,
+                Arch::PPC => RegisterPPC::R7 as i32,
+                Arch::RISCV => RegisterRISCV::A4 as i32,
+                Arch::MAX => panic!("Illegal Arch specified"),
+                _ => unreachable!(),
+        })
+    }
+
+    /// Linux syscall arg-5 register for active architecture
+    #[inline]
+    pub fn syscall_arg5_reg(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::X86 => RegisterX86::R9 as i32,
+                Arch::ARM => RegisterARM::R5 as i32,
+                Arch::ARM64 => RegisterARM64::X5 as i32,
+                Arch::SPARC => RegisterSPARC::O5 as i32,
+                Arch::PPC => RegisterPPC::R8 as i32,
+                Arch::RISCV => RegisterRISCV::A5 as i32,
+                Arch::MAX => panic!("Illegal Arch specified"),
+                _ => unreachable!(),
+        })
+    }
+
+    /// Linux syscall return register for active architecture
+    #[inline]
+    pub fn syscall_return_reg(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::X86 => RegisterX86::R9 as i32,
+                Arch::ARM => RegisterARM::R0 as i32,
+                Arch::ARM64 => RegisterARM64::X0 as i32,
+                Arch::MIPS => RegisterMIPS::V0 as i32,
+                Arch::SPARC => RegisterSPARC::O0 as i32,
+                Arch::PPC => RegisterPPC::R3 as i32,
+                Arch::RISCV => RegisterRISCV::A0 as i32,
+                Arch::MAX => panic!("Illegal Arch specified"),
+                _ => unreachable!(),
+        })
     }
 }

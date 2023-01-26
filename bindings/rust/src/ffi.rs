@@ -80,9 +80,6 @@ extern "C" {
         end: u64,
         ...
     ) -> uc_error;
-    pub fn seal_update_memory_mappings(
-        engine: uc_handle,
-    ) -> uc_error;
     pub fn uc_hook_del(engine: uc_handle, hook: uc_hook) -> uc_error;
     pub fn uc_query(engine: uc_handle, query_type: Query, result: *mut libc::size_t) -> uc_error;
     pub fn uc_context_alloc(engine: uc_handle, context: *mut uc_context) -> uc_error;

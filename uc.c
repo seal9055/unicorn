@@ -2432,37 +2432,6 @@ void trace_end(uc_tracer *tracer, trace_loc loc, const char *fmt, ...)
 }
 #endif
 
-typedef struct SealMem {
-	uint64_t begin;
-	uint64_t end;
-} SealMem;
-
-/// Global array of memory mappings
-/// This is a very hacky solutions, but it seems to be impossible to pass
-/// a `uc_struct` object to helper functions executed from the tcg, so this
-/// still allows the helper functions to access a memory map.
-SealMem  seal_memory_mappings[10000];
-uint64_t seal_memory_mappings_count;
-
-UNICORN_EXPORT
-uc_err seal_update_memory_mappings(uc_engine *uc) {
-	// Verify that this update won't go oob on our global struct
-	assert(uc->mapped_block_count < 10000);
-
-	// Set `seal_memory_mappings_count` so that tcg code knows how many `MemoryRegion`'s
-	// are saved in `seal_memory_mappings`
-	seal_memory_mappings_count = uc->mapped_block_count;
-
-	// Map in all sections
-	for (uint32_t i = 0; i < seal_memory_mappings_count; i++) {
-		seal_memory_mappings[i].begin = uc->mapped_blocks[i]->addr;
-		seal_memory_mappings[i].end = uc->mapped_blocks[i]->end-1;
-	}
-
-	puts("seal_memory_mappings done");
-    return uc->errnum;
-}
-
 // seal_modif
 void helper_seal32(CPUState *env);
 void helper_seal32(CPUState *env)
@@ -2471,23 +2440,21 @@ void helper_seal32(CPUState *env)
 }
 
 // seal_modif
-void helper_seal64(CPUState *env, uint64_t addr);
-void helper_seal64(CPUState *env, uint64_t addr)
+void helper_seal64(CPUState *env, uint64_t lo, uint64_t hi);
+void helper_seal64(CPUState *env, uint64_t lo, uint64_t hi)
 {
-	printf("helper seal64 hit @ %lx with count=%lx\n", addr, seal_memory_mappings_count);
+	printf("seal64 hit @ %lx : %lx\n", lo, hi);
 
-    uint32_t i, size;
-
-    size = 8;
-
-    for (i = 0; i < seal_memory_mappings_count; i++) {
-        // If `addr` exists in one of the memory regions, return
-        // If it does not, the loop completes and an error is triggered
-        if (addr >= seal_memory_mappings->begin && (addr + size) <= seal_memory_mappings->end) {
-        	return;
-        }
-    }
-
-    printf("seal64 encountered error @ %lx\n", addr);
+    //uint32_t i, size;
+    //size = 8;
+    //for (i = 0; i < seal_memory_mappings_count; i++) {
+    //    // If `addr` exists in one of the memory regions, return
+    //    // If it does not, the loop completes and an error is triggered
+    //    if (addr >= seal_memory_mappings->begin && (addr + size) <= seal_memory_mappings->end) {
+    //    	return;
+    //    }
+    //}
+    //printf("seal64 encountered error @ %lx\n", addr);
     return;
 }
+

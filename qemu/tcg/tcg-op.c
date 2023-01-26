@@ -2834,7 +2834,7 @@ static void gen_ldst_i64(TCGContext *tcg_ctx, TCGOpcode opc, TCGv_i64 val, TCGv 
                          MemOp memop, TCGArg idx)
 {
 	// seal_modif
-	gen_helper_seal64(tcg_ctx, tcg_ctx->cpu_env, addr);
+	//gen_helper_seal64(tcg_ctx, tcg_ctx->cpu_env, addr);
 
     TCGMemOpIdx oi = make_memop_idx(memop, idx);
 #if TARGET_LONG_BITS == 32
@@ -3056,6 +3056,7 @@ void tcg_gen_qemu_st_i64(TCGContext *tcg_ctx, TCGv_i64 val, TCGv addr, TCGArg id
     }
 #endif
 
+	//gen_helper_seal64(tcg_ctx, tcg_ctx->cpu_env, addr);
     gen_ldst_i64(tcg_ctx, INDEX_op_qemu_st_i64, val, addr, memop, idx);
 
     if (swap) {

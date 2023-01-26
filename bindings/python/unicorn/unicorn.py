@@ -808,6 +808,7 @@ class Uc(object):
 
     # add a hook
     def hook_add(self, htype: int, callback: UC_HOOK_CALLBACK_TYPE , user_data: Any=None, begin: int=1, end: int=0, arg1: int=0, arg2: int=0):
+        print("Adding hook")
         _h2 = uc_hook_h()
 
         # save callback & user_data
@@ -878,6 +879,7 @@ class Uc(object):
                           uc.UC_HOOK_MEM_READ_PROT |
                           uc.UC_HOOK_MEM_WRITE_PROT |
                           uc.UC_HOOK_MEM_FETCH_PROT):
+                print("Adding mem hook")
                 cb = ctypes.cast(UC_HOOK_MEM_INVALID_CB(self._hook_mem_invalid_cb), UC_HOOK_MEM_INVALID_CB)
                 status = _uc.uc_hook_add(
                     self._uch, ctypes.byref(_h2), htype, cb,

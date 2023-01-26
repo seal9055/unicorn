@@ -2516,6 +2516,13 @@ static inline void tcg_out_op(TCGContext *s, TCGOpcode opc,
         tcg_out_qemu_st(s, args, 0);
         break;
     case INDEX_op_qemu_st_i64:
+        //*args++;
+        //*args++;
+	    //gen_helper_seal64(s, s->cpu_env, *args++, *args++);
+        //*args--;
+        //*args--;
+        //*args--;
+        //*args--;
         tcg_out_qemu_st(s, args, 1);
         break;
 
