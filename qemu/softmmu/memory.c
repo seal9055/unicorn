@@ -55,6 +55,12 @@ MemoryRegion *memory_map(struct uc_struct *uc, hwaddr begin, size_t size, uint32
         tlb_flush(uc->cpu);
     }
 
+    // Check how many pages exist in this address space and
+    // allocate an array used to track which of these pages is dirty
+    assert((size % 4096) == 0);
+    uint32_t num_pages = (size >> 12);
+    ram->dirty = calloc(1, num_pages+1);
+
     return ram;
 }
 

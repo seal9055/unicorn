@@ -978,6 +978,8 @@ static bool memory_overlap(struct uc_struct *uc, uint64_t begin, size_t size)
 static uc_err mem_map(uc_engine *uc, uint64_t address, size_t size,
                       uint32_t perms, MemoryRegion *block)
 {
+    // TODO allocate array for dirty bits
+
     MemoryRegion **regions;
     int pos;
 
@@ -1558,6 +1560,88 @@ MemoryRegion *memory_mapping(struct uc_struct *uc, uint64_t address)
     return NULL;
 }
 
+typedef enum {
+    /// Requested address does not exist
+    INVALID=0,
+
+    /// Page for requested address is already dirty
+    DIRTY=1,
+
+    /// Page for requested address was not dirty yet
+    NDIRTY=2,
+} IsDirty;
+
+UNICORN_EXPORT
+IsDirty uc_test_and_set_dirty(struct uc_struct *uc, uint64_t address)
+{
+    unsigned int i;
+    uint32_t page_idx;
+    bool dirty_check;
+
+    if (uc->mapped_block_count == 0) {
+        return INVALID;
+    }
+
+    if (uc->mem_redirect) {
+        address = uc->mem_redirect(address);
+    }
+
+    // Try finding the page using the cache index first before searching all memory-regions
+    i = uc->mapped_block_cache_index;
+    if (i < uc->mapped_block_count && address >= uc->mapped_blocks[i]->addr &&
+            address < uc->mapped_blocks[i]->end) {
+        page_idx = (address - uc->mapped_blocks[i]->addr) >> 12;
+        dirty_check = uc->mapped_blocks[i]->dirty[page_idx];
+        uc->mapped_blocks[i]->dirty[page_idx] = true;
+        return (dirty_check == true) ? DIRTY : NDIRTY;
+    }
+
+    i = bsearch_mapped_blocks(uc, address);
+    if (i < uc->mapped_block_count && address >= uc->mapped_blocks[i]->addr &&
+            address <= uc->mapped_blocks[i]->end - 1) {
+        page_idx = (address - uc->mapped_blocks[i]->addr) >> 12;
+        dirty_check = uc->mapped_blocks[i]->dirty[page_idx];
+        uc->mapped_blocks[i]->dirty[page_idx] = true;
+        return (dirty_check == true) ? DIRTY : NDIRTY;
+    }
+
+    // not found
+    return INVALID;
+}
+
+UNICORN_EXPORT
+uc_err uc_reset_dirty(struct uc_struct *uc, uint64_t address) {
+    uint32_t i;
+    uint32_t page_idx;
+
+    if (uc->mapped_block_count == 0) {
+        return UC_ERR_MAP;
+    }
+
+    if (uc->mem_redirect) {
+        address = uc->mem_redirect(address);
+    }
+
+    // Try finding the page using the cache index first before searching all memory-regions
+    i = uc->mapped_block_cache_index;
+    if (i < uc->mapped_block_count && address >= uc->mapped_blocks[i]->addr &&
+            address < uc->mapped_blocks[i]->end) {
+        page_idx = (address - uc->mapped_blocks[i]->addr) >> 12;
+        uc->mapped_blocks[i]->dirty[page_idx] = false;
+        return UC_ERR_OK;
+    }
+
+    i = bsearch_mapped_blocks(uc, address);
+    if (i < uc->mapped_block_count && address >= uc->mapped_blocks[i]->addr &&
+            address <= uc->mapped_blocks[i]->end - 1) {
+        page_idx = (address - uc->mapped_blocks[i]->addr) >> 12;
+        uc->mapped_blocks[i]->dirty[page_idx] = false;
+        return UC_ERR_OK;
+    }
+
+    return UC_ERR_OK;
+}
+
 UNICORN_EXPORT
 uc_err uc_hook_add(uc_engine *uc, uc_hook *hh, int type, void *callback,
                    void *user_data, uint64_t begin, uint64_t end, ...)
@@ -1819,6 +1903,7 @@ uc_err uc_mem_regions(uc_engine *uc, uc_mem_region **regions, uint32_t *count)
         r[i].begin = uc->mapped_blocks[i]->addr;
         r[i].end = uc->mapped_blocks[i]->end - 1;
         r[i].perms = uc->mapped_blocks[i]->perms;
+        r[i].dirty = uc->mapped_blocks[i]->dirty;
     }
 
     *regions = r;

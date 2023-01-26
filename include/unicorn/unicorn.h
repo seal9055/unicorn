@@ -446,6 +446,7 @@ typedef struct uc_mem_region {
     uint64_t begin; // begin address of the region (inclusive)
     uint64_t end;   // end address of the region (inclusive)
     uint32_t perms; // memory permissions of the region
+    bool dirty;     // Indicates if this memory-region was dirtied during fuzz-case
 } uc_mem_region;
 
 // All type of queries for uc_query() API.

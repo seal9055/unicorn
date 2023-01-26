@@ -1029,6 +1029,17 @@ impl<'a, D> Unicorn<'a, D> {
         }
     }
 
+    /// Sets dirty bit for the page of given address and returns an `IsDirty` option to indicate if
+    /// the page had already been dirtied before
+    pub fn test_and_set_dirty(&mut self, address: u64) -> IsDirty {
+        unsafe { ffi::uc_test_and_set_dirty(self.get_handle(), address) }
+    }
+
+    /// Resets the dirty bit for the page of a given address
+    pub fn reset_dirty(&mut self, address: u64) -> uc_error {
+        unsafe { ffi::uc_reset_dirty(self.get_handle(), address) }
+    }
+
     /// Gets the current program counter for this `unicorn` instance.
     #[inline]
     pub fn get_pc(&self) -> Result<u64, uc_error> {

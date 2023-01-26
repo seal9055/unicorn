@@ -3,7 +3,7 @@
 
 use crate::Unicorn;
 
-use super::unicorn_const::{uc_error, Arch, HookType, MemRegion, MemType, Mode, Query};
+use super::unicorn_const::{uc_error, Arch, HookType, MemRegion, MemType, Mode, Query, IsDirty};
 use core::ffi::c_void;
 use libc::{c_char, c_int};
 
@@ -68,6 +68,14 @@ extern "C" {
         until: u64,
         timeout: u64,
         count: libc::size_t,
+    ) -> uc_error;
+    pub fn uc_test_and_set_dirty(
+        engine: uc_handle,
+        address: u64,
+    ) -> IsDirty;
+    pub fn uc_reset_dirty(
+        engine: uc_handle,
+        address: u64,
     ) -> uc_error;
     pub fn uc_emu_stop(engine: uc_handle) -> uc_error;
     pub fn uc_hook_add(

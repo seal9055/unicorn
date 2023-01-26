@@ -118,6 +118,20 @@ pub struct MemRegion {
     pub begin: u64,
     pub end: u64,
     pub perms: Permission,
+    pub dirty: bool,
+}
+
+#[repr(C)]
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum IsDirty {
+    /// Requested address does not exist
+    INVALID=0,
+
+    /// Page for requested address is already dirty
+    DIRTY=1,
+
+    /// Page for requested address was not dirty yet
+    NDIRTY=2,
 }
 
 #[repr(C)]

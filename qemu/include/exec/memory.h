@@ -323,6 +323,8 @@ struct MemoryRegion {
     struct uc_struct *uc;
     uint32_t perms;
     hwaddr end;
+
+    bool *dirty;
 };
 
 struct IOMMUMemoryRegion {
