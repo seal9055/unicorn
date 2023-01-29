@@ -1204,4 +1204,15 @@ impl<'a, D> Unicorn<'a, D> {
                 _ => unreachable!(),
         })
     }
+
+    /// Linux syscall return register for active architecture
+    #[inline]
+    pub fn link_register(&self) -> Result<i32, uc_error> {
+        let arch = self.get_arch();
+        Ok(
+            match arch {
+                Arch::RISCV => RegisterRISCV::RA as i32,
+                _ => unreachable!(),
+        })
+    }
 }

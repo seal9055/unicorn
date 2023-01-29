@@ -118,7 +118,6 @@ pub struct MemRegion {
     pub begin: u64,
     pub end: u64,
     pub perms: Permission,
-    pub dirty: bool,
 }
 
 #[repr(C)]
