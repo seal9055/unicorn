@@ -2816,7 +2816,7 @@ static void gen_ldst_i32(TCGContext *tcg_ctx, TCGOpcode opc, TCGv_i32 val, TCGv 
                          MemOp memop, TCGArg idx)
 {
 	// seal_modif
-	gen_helper_seal32(tcg_ctx, tcg_ctx->cpu_env);
+	//gen_helper_seal32(tcg_ctx, tcg_ctx->cpu_env);
 
     TCGMemOpIdx oi = make_memop_idx(memop, idx);
 #if TARGET_LONG_BITS == 32

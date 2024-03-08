@@ -54,7 +54,7 @@ use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use core::{cell::UnsafeCell, ptr};
 use ffi::uc_handle;
 use libc::c_void;
-use unicorn_const::{uc_error, Arch, HookType, MemRegion, MemType, Mode, Permission, Query};
+//use unicorn_const::{uc_error, Arch, HookType, MemRegion, MemType, Mode, Permission, Query};
 
 #[derive(Debug)]
 pub struct Context {
@@ -141,6 +141,7 @@ pub struct UnicornInner<'a, D> {
     /// To keep ownership over the mmio callbacks for this uc instance's lifetime
     pub mmio_callbacks: Vec<MmioCallbackScope<'a>>,
     pub data: D,
+    pub mode: Option<Mode>,
 }
 
 /// Drop UC
@@ -187,6 +188,7 @@ impl<'a> TryFrom<uc_handle> for Unicorn<'a, ()> {
                 data: (),
                 hooks: vec![],
                 mmio_callbacks: vec![],
+                mode: Option::None, 
             })),
         })
     }
@@ -210,6 +212,7 @@ where
                     data,
                     hooks: vec![],
                     mmio_callbacks: vec![],
+                    mode: Some(mode),
                 })),
             })
         } else {
@@ -252,6 +255,12 @@ impl<'a, D> Unicorn<'a, D> {
     #[must_use]
     pub fn get_arch(&self) -> Arch {
         self.inner().arch
+    }
+
+    /// Return the mode of emulator
+    #[must_use]
+    pub fn get_mode(&self) -> Mode {
+        self.inner().mode.expect("Mode not set")
     }
 
     /// Return the handle of the current emulator.
@@ -1045,7 +1054,13 @@ impl<'a, D> Unicorn<'a, D> {
     pub fn get_pc(&self) -> Result<u64, uc_error> {
         let arch = self.get_arch();
         let reg = match arch {
-            Arch::X86 => RegisterX86::RIP as i32,
+            Arch::X86 => { 
+                match self.get_mode() {
+                    Mode::MODE_32 => RegisterX86::EIP as i32,
+                    Mode::MODE_64 => RegisterX86::RIP as i32,
+                    _ => unreachable!(),
+                }
+            }
             Arch::ARM => RegisterARM::PC as i32,
             Arch::ARM64 => RegisterARM64::PC as i32,
             Arch::MIPS => RegisterMIPS::PC as i32,
@@ -1065,7 +1080,13 @@ impl<'a, D> Unicorn<'a, D> {
     pub fn set_pc(&mut self, value: u64) -> Result<(), uc_error> {
         let arch = self.get_arch();
         let reg = match arch {
-            Arch::X86 => RegisterX86::RIP as i32,
+            Arch::X86 => { 
+                match self.get_mode() {
+                    Mode::MODE_32 => RegisterX86::EIP as i32,
+                    Mode::MODE_64 => RegisterX86::RIP as i32,
+                    _ => unreachable!(),
+                }
+            }
             Arch::ARM => RegisterARM::PC as i32,
             Arch::ARM64 => RegisterARM64::PC as i32,
             Arch::MIPS => RegisterMIPS::PC as i32,
@@ -1086,7 +1107,13 @@ impl<'a, D> Unicorn<'a, D> {
         let arch = self.get_arch();
         Ok(
             match arch {
-                Arch::X86 => RegisterX86::RDI as i32,
+                Arch::X86 => { 
+                    match self.get_mode() {
+                        Mode::MODE_32 => RegisterX86::EBX as i32,
+                        Mode::MODE_64 => RegisterX86::RDI as i32,
+                        _ => unreachable!(),
+                    }
+                }
                 Arch::ARM => RegisterARM::R0 as i32,
                 Arch::ARM64 => RegisterARM64::X0 as i32,
                 Arch::MIPS => RegisterMIPS::A0 as i32,
@@ -1104,7 +1131,13 @@ impl<'a, D> Unicorn<'a, D> {
         let arch = self.get_arch();
         Ok(
             match arch {
-                Arch::X86 => RegisterX86::RSI as i32,
+                Arch::X86 => { 
+                    match self.get_mode() {
+                        Mode::MODE_32 => RegisterX86::ECX as i32,
+                        Mode::MODE_64 => RegisterX86::RSI as i32,
+                        _ => unreachable!(),
+                    }
+                }
                 Arch::ARM => RegisterARM::R1 as i32,
                 Arch::ARM64 => RegisterARM64::X1 as i32,
                 Arch::MIPS => RegisterMIPS::A1 as i32,
@@ -1123,7 +1156,13 @@ impl<'a, D> Unicorn<'a, D> {
         let arch = self.get_arch();
         Ok(
             match arch {
-                Arch::X86 => RegisterX86::RDX as i32,
+                Arch::X86 => { 
+                    match self.get_mode() {
+                        Mode::MODE_32 => RegisterX86::EDX as i32,
+                        Mode::MODE_64 => RegisterX86::RDX as i32,
+                        _ => unreachable!(),
+                    }
+                }
                 Arch::ARM => RegisterARM::R2 as i32,
                 Arch::ARM64 => RegisterARM64::X2 as i32,
                 Arch::MIPS => RegisterMIPS::A2 as i32,
@@ -1141,7 +1180,13 @@ impl<'a, D> Unicorn<'a, D> {
         let arch = self.get_arch();
         Ok(
             match arch {
-                Arch::X86 => RegisterX86::R10 as i32,
+                Arch::X86 => { 
+                    match self.get_mode() {
+                        Mode::MODE_32 => RegisterX86::ESI as i32,
+                        Mode::MODE_64 => RegisterX86::R10 as i32,
+                        _ => unreachable!(),
+                    }
+                }
                 Arch::ARM => RegisterARM::R3 as i32,
                 Arch::ARM64 => RegisterARM64::X3 as i32,
                 Arch::MIPS => RegisterMIPS::A3 as i32,
@@ -1159,7 +1204,13 @@ impl<'a, D> Unicorn<'a, D> {
         let arch = self.get_arch();
         Ok(
             match arch {
-                Arch::X86 => RegisterX86::R8 as i32,
+                Arch::X86 => { 
+                    match self.get_mode() {
+                        Mode::MODE_32 => RegisterX86::EDI as i32,
+                        Mode::MODE_64 => RegisterX86::R8 as i32,
+                        _ => unreachable!(),
+                    }
+                }
                 Arch::ARM => RegisterARM::R4 as i32,
                 Arch::ARM64 => RegisterARM64::X4 as i32,
                 Arch::SPARC => RegisterSPARC::O4 as i32,
@@ -1176,7 +1227,12 @@ impl<'a, D> Unicorn<'a, D> {
         let arch = self.get_arch();
         Ok(
             match arch {
-                Arch::X86 => RegisterX86::R9 as i32,
+                Arch::X86 => { 
+                    match self.get_mode() {
+                        Mode::MODE_64 => RegisterX86::R9 as i32,
+                        _ => unreachable!(),
+                    }
+                }
                 Arch::ARM => RegisterARM::R5 as i32,
                 Arch::ARM64 => RegisterARM64::X5 as i32,
                 Arch::SPARC => RegisterSPARC::O5 as i32,
@@ -1193,7 +1249,13 @@ impl<'a, D> Unicorn<'a, D> {
         let arch = self.get_arch();
         Ok(
             match arch {
-                Arch::X86 => RegisterX86::R9 as i32,
+                Arch::X86 => { 
+                    match self.get_mode() {
+                        Mode::MODE_32 => RegisterX86::EAX as i32,
+                        Mode::MODE_64 => RegisterX86::RAX as i32,
+                        _ => unreachable!(),
+                    }
+                }
                 Arch::ARM => RegisterARM::R0 as i32,
                 Arch::ARM64 => RegisterARM64::X0 as i32,
                 Arch::MIPS => RegisterMIPS::V0 as i32,
