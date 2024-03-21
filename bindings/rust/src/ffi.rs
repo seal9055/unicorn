@@ -73,6 +73,9 @@ extern "C" {
         engine: uc_handle,
         address: u64,
     ) -> IsDirty;
+    pub fn uc_check_timeout(
+        engine: uc_handle,
+    ) -> bool;
     pub fn uc_reset_dirty(
         engine: uc_handle,
         address: u64,

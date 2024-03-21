@@ -706,6 +706,7 @@ static void hook_count_cb(struct uc_struct *uc, uint64_t address, uint32_t size,
 
     if (uc->emu_counter > uc->emu_count) {
         // printf(":: emu counter = %u, stop emulation\n", uc->emu_counter);
+        uc->timed_out = true;
         uc_emu_stop(uc);
     }
 }
@@ -1643,6 +1644,11 @@ uc_err uc_reset_dirty(struct uc_struct *uc, uint64_t address) {
 }
 
 UNICORN_EXPORT
+bool uc_check_timeout(struct uc_struct *uc) {
+    return uc->timed_out;
+}
+
+UNICORN_EXPORT
 uc_err uc_hook_add(uc_engine *uc, uc_hook *hh, int type, void *callback,
                    void *user_data, uint64_t begin, uint64_t end, ...)
 {
@@ -2542,4 +2548,3 @@ void helper_seal64(CPUState *env, uint64_t lo, uint64_t hi)
     //printf("seal64 encountered error @ %lx\n", addr);
     return;
 }
-

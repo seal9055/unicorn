@@ -142,6 +142,7 @@ pub struct UnicornInner<'a, D> {
     pub mmio_callbacks: Vec<MmioCallbackScope<'a>>,
     pub data: D,
     pub mode: Option<Mode>,
+    pub crash_pc: u64,
 }
 
 /// Drop UC
@@ -189,6 +190,7 @@ impl<'a> TryFrom<uc_handle> for Unicorn<'a, ()> {
                 hooks: vec![],
                 mmio_callbacks: vec![],
                 mode: Option::None, 
+                crash_pc: 0,
             })),
         })
     }
@@ -213,6 +215,7 @@ where
                     hooks: vec![],
                     mmio_callbacks: vec![],
                     mode: Some(mode),
+                    crash_pc: 0x0,
                 })),
             })
         } else {
@@ -261,6 +264,15 @@ impl<'a, D> Unicorn<'a, D> {
     #[must_use]
     pub fn get_mode(&self) -> Mode {
         self.inner().mode.expect("Mode not set")
+    }
+
+    pub fn set_crash_pc(&mut self, pc: u64) {
+        self.inner_mut().crash_pc = pc;
+    }
+
+    #[must_use]
+    pub fn crash_pc(&mut self) -> u64 {
+        self.inner().crash_pc
     }
 
     /// Return the handle of the current emulator.
@@ -1049,6 +1061,11 @@ impl<'a, D> Unicorn<'a, D> {
         unsafe { ffi::uc_reset_dirty(self.get_handle(), address) }
     }
 
+    /// Check if emulation timed out
+    pub fn check_timeout(&mut self) -> bool {
+        unsafe { ffi::uc_check_timeout(self.get_handle()) }
+    }
+
     /// Gets the current program counter for this `unicorn` instance.
     #[inline]
     pub fn get_pc(&self) -> Result<u64, uc_error> {
@@ -1099,6 +1116,76 @@ impl<'a, D> Unicorn<'a, D> {
             Arch::MAX => panic!("Illegal Arch specified"),
         };
         self.reg_write(reg, value)
+    }
+
+    /// Linux function arg-0 for active architecture
+    #[inline]
+    pub fn function_arg0_val(&self) -> Result<u64, uc_error> {
+        let arch = self.get_arch();
+        match arch {
+            Arch::X86 => {
+                match self.get_mode() {
+                    Mode::MODE_32 => {
+                        let mut reader = vec![0u8; 4];
+                        let esp = self.reg_read(RegisterX86::ESP as i32).unwrap();
+                        self.mem_read(esp + 0x4, &mut reader).unwrap();
+                        Ok(u32::from_le_bytes(reader[0..4].try_into().unwrap()) as u64)
+                    },
+                    Mode::MODE_64 => self.reg_read(RegisterX86::RDI as i32),
+                    _ => unreachable!(),
+                }
+            }
+            Arch::ARM => self.reg_read(RegisterARM::R0 as i32),
+            Arch::ARM64 => self.reg_read(RegisterARM64::X0 as i32),
+            Arch::MIPS => self.reg_read(RegisterMIPS::A0 as i32),
+            Arch::SPARC => self.reg_read(RegisterSPARC::O0 as i32),
+            Arch::PPC => self.reg_read(RegisterPPC::R3 as i32),
+            Arch::RISCV => self.reg_read(RegisterRISCV::A0 as i32),
+            Arch::MAX => panic!("Illegal Arch specified"),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Linux function arg-1 for active architecture
+    #[inline]
+    pub fn function_arg1_val(&self) -> Result<u64, uc_error> {
+        let arch = self.get_arch();
+        match arch {
+            Arch::X86 => {
+                match self.get_mode() {
+                    Mode::MODE_32 => {
+                        let mut reader = vec![0u8; 4];
+                        let esp = self.reg_read(RegisterX86::ESP as i32).unwrap();
+                        self.mem_read(esp + 0x8, &mut reader).unwrap();
+                        Ok(u32::from_le_bytes(reader[0..4].try_into().unwrap()) as u64)
+                    },
+                    Mode::MODE_64 => self.reg_read(RegisterX86::RSI as i32),
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    /// Linux function arg-2 for active architecture
+    #[inline]
+    pub fn function_arg2_val(&self) -> Result<u64, uc_error> {
+        let arch = self.get_arch();
+        match arch {
+            Arch::X86 => {
+                match self.get_mode() {
+                    Mode::MODE_32 => {
+                        let mut reader = vec![0u8; 4];
+                        let esp = self.reg_read(RegisterX86::ESP as i32).unwrap();
+                        self.mem_read(esp + 0xc, &mut reader).unwrap();
+                        Ok(u32::from_le_bytes(reader[0..4].try_into().unwrap()) as u64)
+                    },
+                    Mode::MODE_64 => self.reg_read(RegisterX86::RDX as i32),
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 
     /// Linux syscall arg-0 for active architecture
@@ -1276,5 +1363,68 @@ impl<'a, D> Unicorn<'a, D> {
                 Arch::RISCV => RegisterRISCV::RA as i32,
                 _ => unreachable!(),
         })
+    }
+
+    /// Linux function call return address
+    #[inline]
+    pub fn simulate_return(&mut self) -> Result<(), uc_error> {
+        let arch = self.get_arch();
+        match arch {
+            Arch::RISCV => {
+                let link_register = self.link_register().unwrap();
+                let new_pc = self.reg_read(link_register).unwrap();
+                self.set_pc(new_pc).unwrap();
+                Ok(())
+            }
+            Arch::X86 => {
+                match self.get_mode() {
+                    Mode::MODE_32 => {
+                        let esp_val: u64 = self.reg_read(RegisterX86::ESP).unwrap();
+                        self.reg_write(RegisterX86::ESP, esp_val+4).unwrap();
+                        let data = self.mem_read_as_vec(esp_val, 4).unwrap();
+                        let addr = u32::from_le_bytes(data[0..4].try_into().unwrap()) as u64;
+                        self.set_pc(addr).unwrap();
+                        Ok(())
+                    },
+                    Mode::MODE_64 => {
+                        let rsp_val: u64 = self.reg_read(RegisterX86::RSP).unwrap();
+                        self.reg_write(RegisterX86::RSP, rsp_val+8).unwrap();
+                        let data = self.mem_read_as_vec(rsp_val, 8).unwrap();
+                        let addr = u64::from_le_bytes(data[0..8].try_into().unwrap());
+                        self.set_pc(addr).unwrap();
+                        Ok(())
+                    },
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline]
+    pub fn func_return_addr(&self) -> Result<u64, uc_error> {
+        let arch = self.get_arch();
+        match arch {
+            Arch::RISCV => {
+                let link_register = self.link_register().unwrap();
+                self.reg_read(link_register)
+            }
+            Arch::X86 => {
+                match self.get_mode() {
+                    Mode::MODE_32 => {
+                        let esp_val: u64 = self.reg_read(RegisterX86::ESP).unwrap();
+                        let data = self.mem_read_as_vec(esp_val, 4).unwrap();
+                        Ok(u32::from_le_bytes(data[0..4].try_into().unwrap()) as u64)
+                    },
+                    Mode::MODE_64 => {
+                        let rsp_val: u64 = self.reg_read(RegisterX86::RSP).unwrap();
+                        let data = self.mem_read_as_vec(rsp_val, 8).unwrap();
+                        Ok(u32::from_le_bytes(data[0..8].try_into().unwrap()) as u64)
+                    },
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 }

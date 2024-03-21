@@ -37,7 +37,9 @@ pub enum uc_error {
     RESOURCE = 20,
     EXCEPTION = 21,
     SNAPSHOT_CONTEXT_ALREADY_SET = 22,
-    InvalidFree = 23,
+    OOB_FREE = 23,
+    DOUBLE_FREE = 24,
+    TIMEOUT = 25,
 }
 
 #[repr(C)]
