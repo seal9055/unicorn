@@ -325,6 +325,7 @@ struct MemoryRegion {
     hwaddr end;
 
     bool *dirty;
+    Int128 real_size;
 };
 
 struct IOMMUMemoryRegion {

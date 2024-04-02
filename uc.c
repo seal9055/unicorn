@@ -976,11 +976,9 @@ static bool memory_overlap(struct uc_struct *uc, uint64_t begin, size_t size)
 }
 
 // common setup/error checking shared between uc_mem_map and uc_mem_map_ptr
-static uc_err mem_map(uc_engine *uc, uint64_t address, size_t size,
+static uc_err mem_map(uc_engine *uc, uint64_t address, size_t real_size,
                       uint32_t perms, MemoryRegion *block)
 {
-    // TODO allocate array for dirty bits
-
     MemoryRegion **regions;
     int pos;
 
@@ -1003,6 +1001,9 @@ static uc_err mem_map(uc_engine *uc, uint64_t address, size_t size,
     // shift the array right to give space for the new pointer
     memmove(&uc->mapped_blocks[pos + 1], &uc->mapped_blocks[pos],
             sizeof(MemoryRegion *) * (uc->mapped_block_count - pos));
+
+    // Save the real size so we can make use of it later
+    block->real_size = real_size;
 
     uc->mapped_blocks[pos] = block;
     uc->mapped_block_count++;
@@ -1051,19 +1052,21 @@ uc_err uc_mem_map(uc_engine *uc, uint64_t address, size_t size, uint32_t perms)
 {
     uc_err res;
 
+    // Page align the size
+    size_t aligned_size = (0xfff + size) & ~0xfff;
+
     UC_INIT(uc);
 
     if (uc->mem_redirect) {
         address = uc->mem_redirect(address);
     }
 
-    res = mem_map_check(uc, address, size, perms);
+    res = mem_map_check(uc, address, aligned_size, perms);
     if (res) {
         return res;
     }
 
-    return mem_map(uc, address, size, perms,
-                   uc->memory_map(uc, address, size, perms));
+    return mem_map(uc, address, size, perms, uc->memory_map(uc, address, aligned_size, perms));
 }
 
 UNICORN_EXPORT
@@ -1389,6 +1392,9 @@ uc_err uc_mem_protect(struct uc_struct *uc, uint64_t address, size_t size,
     size_t count, len;
     bool remove_exec = false;
 
+    // Page align the size
+    size_t aligned_size = (0xfff + size) & ~0xfff;
+
     UC_INIT(uc);
 
     if (size == 0) {
@@ -1402,7 +1408,7 @@ uc_err uc_mem_protect(struct uc_struct *uc, uint64_t address, size_t size,
     }
 
     // size must be multiple of uc->target_page_size
-    if ((size & uc->target_page_align) != 0) {
+    if ((aligned_size & uc->target_page_align) != 0) {
         return UC_ERR_ARG;
     }
 
@@ -1416,7 +1422,7 @@ uc_err uc_mem_protect(struct uc_struct *uc, uint64_t address, size_t size,
     }
 
     // check that user's entire requested block is mapped
-    if (!check_mem_area(uc, address, size)) {
+    if (!check_mem_area(uc, address, aligned_size)) {
         return UC_ERR_NOMEM;
     }
 
@@ -1424,9 +1430,9 @@ uc_err uc_mem_protect(struct uc_struct *uc, uint64_t address, size_t size,
     // We may need to split regions if this area spans adjacent regions
     addr = address;
     count = 0;
-    while (count < size) {
+    while (count < aligned_size) {
         mr = memory_mapping(uc, addr);
-        len = (size_t)MIN(size - count, mr->end - addr);
+        len = (size_t)MIN(aligned_size - count, mr->end - addr);
         if (mr->ram) {
             if (!split_region(uc, mr, addr, len, false)) {
                 return UC_ERR_NOMEM;
@@ -1439,6 +1445,7 @@ uc_err uc_mem_protect(struct uc_struct *uc, uint64_t address, size_t size,
                 remove_exec = true;
             }
             mr->perms = perms;
+            mr->real_size = size;
             uc->readonly_mem(mr, (perms & UC_PROT_WRITE) == 0);
 
         } else {
@@ -1448,6 +1455,7 @@ uc_err uc_mem_protect(struct uc_struct *uc, uint64_t address, size_t size,
 
             mr = memory_mapping(uc, addr);
             mr->perms = perms;
+            mr->real_size = size;
         }
 
         count += len;
@@ -1458,7 +1466,7 @@ uc_err uc_mem_protect(struct uc_struct *uc, uint64_t address, size_t size,
     // place
     if (remove_exec) {
         pc = uc->get_pc(uc);
-        if (pc < address + size && pc >= address) {
+        if (pc < address + aligned_size && pc >= address) {
             uc->quit_request = true;
             uc_emu_stop(uc);
         }
@@ -1571,6 +1579,35 @@ typedef enum {
     /// Page for requested address was not dirty yet
     NDIRTY=2,
 } IsDirty;
+
+UNICORN_EXPORT
+size_t uc_real_size(struct uc_struct *uc, uint64_t address) {
+    unsigned int i;
+
+    if (uc->mapped_block_count == 0) {
+        return INVALID;
+    }
+
+    if (uc->mem_redirect) {
+        address = uc->mem_redirect(address);
+    }
+
+    // Try finding the page using the cache index first before searching all memory-regions
+    i = uc->mapped_block_cache_index;
+    if (i < uc->mapped_block_count && address >= uc->mapped_blocks[i]->addr &&
+            address < uc->mapped_blocks[i]->end) {
+        return uc->mapped_blocks[i]->real_size;
+    }
+
+    i = bsearch_mapped_blocks(uc, address);
+    if (i < uc->mapped_block_count && address >= uc->mapped_blocks[i]->addr &&
+            address <= uc->mapped_blocks[i]->end - 1) {
+        return uc->mapped_blocks[i]->real_size;
+    }
+
+    // not found
+    return INVALID;
+}
 
 UNICORN_EXPORT
 IsDirty uc_test_and_set_dirty(struct uc_struct *uc, uint64_t address)

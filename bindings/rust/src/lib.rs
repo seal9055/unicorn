@@ -54,7 +54,6 @@ use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use core::{cell::UnsafeCell, ptr};
 use ffi::uc_handle;
 use libc::c_void;
-//use unicorn_const::{uc_error, Arch, HookType, MemRegion, MemType, Mode, Permission, Query};
 
 #[derive(Debug)]
 pub struct Context {
@@ -1054,6 +1053,11 @@ impl<'a, D> Unicorn<'a, D> {
     /// the page had already been dirtied before
     pub fn test_and_set_dirty(&mut self, address: u64) -> IsDirty {
         unsafe { ffi::uc_test_and_set_dirty(self.get_handle(), address) }
+    }
+
+    /// Gets MemoryRegion corresponding to `address` and returns the real non page-aligned size
+    pub fn real_size(&mut self, address: u64) -> usize {
+        unsafe { ffi::uc_real_size(self.get_handle(), address) }
     }
 
     /// Resets the dirty bit for the page of a given address

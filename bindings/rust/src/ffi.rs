@@ -73,6 +73,10 @@ extern "C" {
         engine: uc_handle,
         address: u64,
     ) -> IsDirty;
+    pub fn uc_real_size(
+        engine: uc_handle,
+        address: u64,
+    ) -> usize;
     pub fn uc_check_timeout(
         engine: uc_handle,
     ) -> bool;
